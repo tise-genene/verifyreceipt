@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: verifyreceipt-backend
+    runtime: python
+    rootDir: backend
+    plan: free
+    autoDeploy: true
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: VERIFY_API_KEY
+        sync: false
+      - key: VERIFY_API_BASE_URL
+        value: https://verifyapi.leulzenebe.pro
+      - key: RATE_LIMIT_ENABLED
+        value: true
+      - key: RATE_LIMIT_PER_MINUTE
+        value: 60
