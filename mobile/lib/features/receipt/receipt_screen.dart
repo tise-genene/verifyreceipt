@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -281,16 +282,18 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                     },
             ),
           ],
-          const SizedBox(height: 16),
-          ExpansionTile(
-            title: const Text('OCR text (debug)'),
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Text(state.ocrText ?? '-'),
-              ),
-            ],
-          ),
+          if (kDebugMode) ...[
+            const SizedBox(height: 16),
+            ExpansionTile(
+              title: const Text('OCR text (debug)'),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(state.ocrText ?? '-'),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

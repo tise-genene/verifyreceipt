@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -28,6 +29,7 @@ class VerificationResultView extends StatelessWidget {
 
     final payload = _payloadFromRaw(result.raw);
     final details = _buildDetails(provider, payload);
+    final showDebug = kDebugMode;
 
     final failureMessage = result.status == 'SUCCESS'
         ? null
@@ -111,7 +113,13 @@ class VerificationResultView extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: () async {
                     await Clipboard.setData(
-                      ClipboardData(text: prettyJson(result.raw)),
+                      ClipboardData(
+                        text: _detailsText(
+                          provider: provider,
+                          result: result,
+                          details: details,
+                        ),
+                      ),
                     );
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -124,7 +132,11 @@ class VerificationResultView extends StatelessWidget {
                 ),
                 OutlinedButton.icon(
                   onPressed: () {
-                    final summary = _shareText(provider, result);
+                    final summary = _detailsText(
+                      provider: provider,
+                      result: result,
+                      details: details,
+                    );
                     Share.share(summary);
                   },
                   icon: const Icon(Icons.share),
@@ -148,19 +160,20 @@ class VerificationResultView extends StatelessWidget {
               ...details.map((e) => _kv(e.key, e.value)),
               const SizedBox(height: 8),
             ],
-            ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              title: const Text('Advanced: raw API response'),
-              children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: SelectableText(
-                    prettyJson(result.raw),
-                    style: Theme.of(context).textTheme.bodySmall,
+            if (showDebug)
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: const Text('Advanced: raw API response (debug)'),
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: SelectableText(
+                      prettyJson(result.raw),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
           ],
         ),
       ),
@@ -334,20 +347,25 @@ class VerificationResultView extends StatelessWidget {
         .join(' · ');
   }
 
-  static String _shareText(PaymentProvider provider, NormalizedVerification r) {
+  static String _detailsText({
+    required PaymentProvider provider,
+    required NormalizedVerification result,
+    required List<MapEntry<String, String>> details,
+  }) {
     final b = StringBuffer();
     b.writeln('VerifyReceipt result');
     b.writeln('Provider: ${provider.label}');
-    b.writeln('Status: ${r.status}');
-    if (r.reference != null && r.reference!.isNotEmpty) {
-      b.writeln('Reference: ${r.reference}');
+    b.writeln('Status: ${result.status}');
+    if (result.reference != null && result.reference!.isNotEmpty) {
+      b.writeln('Reference: ${result.reference}');
     }
-    if (r.amount != null) b.writeln('Amount: ${r.amount!.toStringAsFixed(2)}');
-    if (r.payer != null && r.payer!.isNotEmpty) b.writeln('Payer: ${r.payer}');
-    if (r.date != null && r.date!.isNotEmpty) b.writeln('Date: ${r.date}');
-    b.writeln();
-    b.writeln('Full details:');
-    b.writeln(prettyJson(r.raw));
+    if (details.isNotEmpty) {
+      b.writeln();
+      b.writeln('Details:');
+      for (final e in details.take(20)) {
+        b.writeln('${e.key}: ${e.value}');
+      }
+    }
     return b.toString();
   }
 
