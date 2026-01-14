@@ -32,6 +32,11 @@ android {
 
     buildTypes {
         release {
+            // R8 can strip optional ML Kit classes used by google_mlkit_text_recognition.
+            // For easy tester APKs, keep minification off.
+            isMinifyEnabled = false
+            isShrinkResources = false
+
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
