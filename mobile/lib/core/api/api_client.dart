@@ -133,6 +133,15 @@ String errorMessage(Object error) {
 
     final data = error.response?.data;
     if (data is Map<String, dynamic>) {
+      final dataText = data.toString().toLowerCase();
+      if (dataText.contains('puppeteer') ||
+          dataText.contains('could not find chrome') ||
+          dataText.contains('chrome (ver.') ||
+          dataText.contains('pptr.dev') ||
+          dataText.contains('cache path')) {
+        return 'Verification service is temporarily unavailable. Please try again later.';
+      }
+
       final detail = data['detail'];
       if (detail is String) return detail;
       if (detail != null) return prettyJson(detail);

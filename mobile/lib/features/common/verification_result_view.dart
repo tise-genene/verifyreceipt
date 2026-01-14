@@ -10,10 +10,12 @@ class VerificationResultView extends StatelessWidget {
     super.key,
     required this.result,
     required this.fallbackProvider,
+    this.onRetry,
   });
 
   final NormalizedVerification result;
   final PaymentProvider fallbackProvider;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +28,10 @@ class VerificationResultView extends StatelessWidget {
 
     final payload = _payloadFromRaw(result.raw);
     final details = _buildDetails(provider, payload);
+
+    final failureMessage = result.status == 'SUCCESS'
+        ? null
+        : _friendlyFailureMessage(payload);
 
     final (badgeColor, badgeBg) = _statusColors(context, result.status);
 
@@ -57,19 +63,29 @@ class VerificationResultView extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    result.reference ?? '-',
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        result.reference ?? '-',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            _kv('Provider', provider.label),
-            _kv('Amount', result.amount?.toStringAsFixed(2) ?? '-'),
-            _kv('Payer', result.payer ?? '-'),
-            _kv('Date', result.date ?? '-'),
+            if (failureMessage != null) ...[
+              Text(
+                failureMessage,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
@@ -114,6 +130,12 @@ class VerificationResultView extends StatelessWidget {
                   icon: const Icon(Icons.share),
                   label: const Text('Share'),
                 ),
+                if (result.status != 'SUCCESS' && onRetry != null)
+                  OutlinedButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
               ],
             ),
             const SizedBox(height: 12),
@@ -253,6 +275,7 @@ class VerificationResultView extends StatelessWidget {
     for (final k in priorityKeys) {
       final v = flattened[k];
       if (v != null && v.toString().trim().isNotEmpty) {
+        if (_shouldHideDetailEntry(k, v.toString())) continue;
         used.add(k);
         out.add(MapEntry(_prettyKey(k), v.toString()));
       }
@@ -264,6 +287,7 @@ class VerificationResultView extends StatelessWidget {
         .where((e) => e.value != null)
         .map((e) => MapEntry(_prettyKey(e.key), e.value.toString()))
         .where((e) => e.value.trim().isNotEmpty)
+        .where((e) => !_shouldHideDetailEntry(e.key, e.value))
         .take(24);
 
     out.addAll(remaining);
@@ -325,6 +349,61 @@ class VerificationResultView extends StatelessWidget {
     b.writeln('Full details:');
     b.writeln(prettyJson(r.raw));
     return b.toString();
+  }
+
+  static bool _isMeaningful(String? v) {
+    if (v == null) return false;
+    final t = v.trim();
+    return t.isNotEmpty && t != '-';
+  }
+
+  static bool _shouldHideDetailEntry(String key, String value) {
+    final k = key.toLowerCase();
+    final v = value.toLowerCase();
+
+    // Avoid showing dev/system fields to normal users (keep them in Advanced only).
+    if (k.contains('error') ||
+        k.contains('stack') ||
+        k.contains('trace') ||
+        k == 'success' ||
+        k == 'message' ||
+        k == 'detail') {
+      return true;
+    }
+    if (v.contains('puppeteer') ||
+        v.contains('could not find chrome') ||
+        v.contains('chrome (ver.') ||
+        v.contains('chromium') ||
+        v.contains('pptr.dev')) {
+      return true;
+    }
+
+    // Also hide extremely long blob values in the Details section.
+    if (value.length > 220) return true;
+    return false;
+  }
+
+  static String _friendlyFailureMessage(Map<String, dynamic> payload) {
+    final err = (payload['error'] ?? payload['message'] ?? payload['detail'])
+        ?.toString()
+        .trim();
+    if (err != null && err.isNotEmpty) {
+      final e = err.toLowerCase();
+      if (e.contains('puppeteer') ||
+          e.contains('could not find chrome') ||
+          e.contains('chrome (ver.') ||
+          e.contains('cache path') ||
+          e.contains('browsers install')) {
+        return 'Verification service is temporarily unavailable. Please try again in a few minutes.';
+      }
+      if (e.contains('not found') || e.contains('no transaction')) {
+        return 'No transaction found for that reference.';
+      }
+      if (e.contains('invalid') || e.contains('incorrect')) {
+        return 'That reference looks invalid. Please double-check and try again.';
+      }
+    }
+    return 'Verification failed. Please try again.';
   }
 }
 

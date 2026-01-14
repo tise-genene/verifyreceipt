@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import hashlib
 import logging
 import time
 import uuid
+from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +24,47 @@ from .verifier_api import (
     verify_by_image,
     verify_by_reference,
 )
+
+
+def _contains_puppeteer_error(value: Any, depth: int = 0) -> bool:
+    if depth > 4:
+        return False
+    if value is None:
+        return False
+    if isinstance(value, str):
+        v = value.lower()
+        return (
+            "puppeteer" in v
+            or "could not find chrome" in v
+            or "chrome (ver." in v
+            or "browsers install" in v
+            or "pptr.dev" in v
+            or "cache path" in v
+        )
+    if isinstance(value, dict):
+        for k, v in value.items():
+            if _contains_puppeteer_error(k, depth + 1) or _contains_puppeteer_error(v, depth + 1):
+                return True
+        return False
+    if isinstance(value, (list, tuple)):
+        return any(_contains_puppeteer_error(v, depth + 1) for v in value)
+    return False
+
+
+def _looks_like_automation_error(raw: object) -> bool:
+    try:
+        text = json.dumps(raw).lower()
+    except Exception:
+        text = str(raw).lower()
+
+    needles = [
+        "puppeteer",
+        "could not find chrome",
+        "chromium",
+        "browser install",
+        "pptr.dev",
+    ]
+    return any(n in text for n in needles)
 
 app = FastAPI(title="verifyreceipt-backend", version="0.1.0")
 
@@ -118,6 +161,11 @@ async def api_verify_reference(req: VerifyReferenceRequest) -> NormalizedVerific
             suffix=req.suffix,
             phone=req.phone,
         )
+        if _contains_puppeteer_error(raw):
+            raise HTTPException(
+                status_code=503,
+                detail="Verification service is temporarily unavailable. Please try again later.",
+            )
     except UpstreamTimeout:
         raise HTTPException(
             status_code=504,
@@ -129,9 +177,21 @@ async def api_verify_reference(req: VerifyReferenceRequest) -> NormalizedVerific
             detail="Cannot reach upstream verification service. Please try again.",
         )
     except UpstreamError as e:
-        raise HTTPException(status_code=502, detail={"upstream": e.body})
+        logger.warning("upstream_error provider=%s body=%s", req.provider.value, e.body)
+        raise HTTPException(
+            status_code=502,
+            detail="Upstream verification failed. Please try again.",
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    # Some upstream providers may fail due to their own automation/runtime issues
+    # (e.g. Puppeteer/Chrome missing). Don't show the dev error to end users.
+    if _looks_like_automation_error(raw):
+        raise HTTPException(
+            status_code=503,
+            detail="Verification is temporarily unavailable for this provider. Please try again later.",
+        )
 
     status = normalize_status(raw)
     amount, payer, date, reference = normalize_fields(raw)
@@ -177,6 +237,11 @@ async def api_verify_receipt(
             filename=image.filename or "receipt.jpg",
             suffix=suffix,
         )
+        if _contains_puppeteer_error(raw):
+            raise HTTPException(
+                status_code=503,
+                detail="Verification service is temporarily unavailable. Please try again later.",
+            )
     except UpstreamTimeout:
         raise HTTPException(
             status_code=504,
@@ -188,9 +253,19 @@ async def api_verify_receipt(
             detail="Cannot reach upstream verification service. Please try again.",
         )
     except UpstreamError as e:
-        raise HTTPException(status_code=502, detail={"upstream": e.body})
+        logger.warning("upstream_error provider=%s body=%s", provider, e.body)
+        raise HTTPException(
+            status_code=502,
+            detail="Upstream verification failed. Please try again.",
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    if _looks_like_automation_error(raw):
+        raise HTTPException(
+            status_code=503,
+            detail="Verification is temporarily unavailable for this provider. Please try again later.",
+        )
 
     status = normalize_status(raw)
     amount, payer, date, reference = normalize_fields(raw)

@@ -134,6 +134,7 @@ class ReferenceScreen extends ConsumerWidget {
             VerificationResultView(
               result: state.result!,
               fallbackProvider: state.provider,
+              onRetry: state.isLoading ? null : ctrl.verify,
             ),
           ],
         ],

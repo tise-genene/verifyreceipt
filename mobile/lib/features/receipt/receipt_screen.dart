@@ -266,6 +266,19 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
             VerificationResultView(
               result: state.result!,
               fallbackProvider: state.provider,
+              onRetry: state.isLoading
+                  ? null
+                  : () {
+                      if (state.extractedReference != null &&
+                          state.extractedReference!.trim().isNotEmpty) {
+                        ctrl.verifyByExtractedReference();
+                        return;
+                      }
+                      if (ctrl.supportsUploadFallback &&
+                          state.imagePath != null) {
+                        ctrl.uploadFallback();
+                      }
+                    },
             ),
           ],
           const SizedBox(height: 16),
