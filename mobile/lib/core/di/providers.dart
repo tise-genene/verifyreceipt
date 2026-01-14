@@ -11,9 +11,9 @@ final settingsStoreProvider = Provider<SettingsStore>((ref) => SettingsStore());
 final dioProvider = Provider<Dio>((ref) {
   return Dio(
     BaseOptions(
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 20),
-      sendTimeout: const Duration(seconds: 20),
+      connectTimeout: const Duration(seconds: 20),
+      receiveTimeout: const Duration(seconds: 90),
+      sendTimeout: const Duration(seconds: 90),
     ),
   );
 });

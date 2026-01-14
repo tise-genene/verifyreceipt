@@ -15,7 +15,13 @@ from .schemas import NormalizedVerification, Provider, VerifyReferenceRequest
 from .settings import settings
 from .rate_limit import FixedWindowRateLimiter
 from .request_utils import get_client_ip
-from .verifier_api import UpstreamError, verify_by_image, verify_by_reference
+from .verifier_api import (
+    UpstreamConnectionError,
+    UpstreamError,
+    UpstreamTimeout,
+    verify_by_image,
+    verify_by_reference,
+)
 
 app = FastAPI(title="verifyreceipt-backend", version="0.1.0")
 
@@ -112,6 +118,16 @@ async def api_verify_reference(req: VerifyReferenceRequest) -> NormalizedVerific
             suffix=req.suffix,
             phone=req.phone,
         )
+    except UpstreamTimeout:
+        raise HTTPException(
+            status_code=504,
+            detail="Upstream verification timed out. Please try again.",
+        )
+    except UpstreamConnectionError:
+        raise HTTPException(
+            status_code=502,
+            detail="Cannot reach upstream verification service. Please try again.",
+        )
     except UpstreamError as e:
         raise HTTPException(status_code=502, detail={"upstream": e.body})
     except Exception as e:
@@ -160,6 +176,16 @@ async def api_verify_receipt(
             image_bytes=image_bytes,
             filename=image.filename or "receipt.jpg",
             suffix=suffix,
+        )
+    except UpstreamTimeout:
+        raise HTTPException(
+            status_code=504,
+            detail="Upstream verification timed out. Please try again.",
+        )
+    except UpstreamConnectionError:
+        raise HTTPException(
+            status_code=502,
+            detail="Cannot reach upstream verification service. Please try again.",
         )
     except UpstreamError as e:
         raise HTTPException(status_code=502, detail={"upstream": e.body})

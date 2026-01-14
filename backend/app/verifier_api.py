@@ -23,6 +23,23 @@ class UpstreamError(RuntimeError):
         self.body = body
 
 
+class UpstreamTimeout(RuntimeError):
+    pass
+
+
+class UpstreamConnectionError(RuntimeError):
+    pass
+
+
+def _timeout() -> httpx.Timeout:
+    total = settings.upstream_timeout_seconds
+    connect = settings.upstream_connect_timeout_seconds
+    # Keep connect <= total to avoid confusing configs.
+    if connect > total:
+        connect = total
+    return httpx.Timeout(total, connect=connect)
+
+
 async def verify_by_reference(
     *, provider: str, reference: str, suffix: Optional[str], phone: Optional[str]
 ) -> dict[str, Any]:
@@ -40,8 +57,17 @@ async def verify_by_reference(
 
     url = settings.verify_api_base_url.rstrip("/") + PROVIDER_TO_ENDPOINT[provider]
 
-    async with httpx.AsyncClient(timeout=settings.upstream_timeout_seconds) as client:
-        resp = await client.post(url, json=payload, headers={"x-api-key": settings.verify_api_key})
+    try:
+        async with httpx.AsyncClient(timeout=_timeout()) as client:
+            resp = await client.post(
+                url,
+                json=payload,
+                headers={"x-api-key": settings.verify_api_key},
+            )
+    except httpx.TimeoutException as e:
+        raise UpstreamTimeout(str(e))
+    except httpx.RequestError as e:
+        raise UpstreamConnectionError(str(e))
 
     try:
         data = resp.json()
@@ -63,13 +89,18 @@ async def verify_by_image(*, image_bytes: bytes, filename: str, suffix: Optional
         data["suffix"] = suffix
         data["accountSuffix"] = suffix
 
-    async with httpx.AsyncClient(timeout=settings.upstream_timeout_seconds) as client:
-        resp = await client.post(
-            url,
-            data=data,
-            files=files,
-            headers={"x-api-key": settings.verify_api_key},
-        )
+    try:
+        async with httpx.AsyncClient(timeout=_timeout()) as client:
+            resp = await client.post(
+                url,
+                data=data,
+                files=files,
+                headers={"x-api-key": settings.verify_api_key},
+            )
+    except httpx.TimeoutException as e:
+        raise UpstreamTimeout(str(e))
+    except httpx.RequestError as e:
+        raise UpstreamConnectionError(str(e))
 
     try:
         out = resp.json()

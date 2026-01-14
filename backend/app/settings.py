@@ -6,7 +6,8 @@ class Settings(BaseSettings):
 
     verify_api_key: str
     verify_api_base_url: str = "https://verifyapi.leulzenebe.pro"
-    upstream_timeout_seconds: float = 15.0
+    upstream_timeout_seconds: float = 60.0
+    upstream_connect_timeout_seconds: float = 20.0
     port: int = 8080
 
     # Simple per-IP fixed-window rate limit (in-memory).

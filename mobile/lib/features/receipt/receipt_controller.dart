@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
@@ -56,6 +57,9 @@ class ReceiptState {
 }
 
 class ReceiptController extends Notifier<ReceiptState> {
+  CancelToken? _cancelToken;
+  int _opId = 0;
+
   @override
   ReceiptState build() {
     return const ReceiptState(provider: PaymentProvider.telebirr);
@@ -65,8 +69,16 @@ class ReceiptController extends Notifier<ReceiptState> {
   OcrService get _ocr => ref.read(ocrServiceProvider);
   HistoryStore get _history => ref.read(historyStoreProvider);
 
-  void setProvider(PaymentProvider p) => state = state.copyWith(provider: p);
-  void setSuffix(String v) => state = state.copyWith(suffix: v);
+  void setProvider(PaymentProvider p) =>
+      state = state.copyWith(provider: p, clearError: true, clearResult: true);
+  void setSuffix(String v) =>
+      state = state.copyWith(suffix: v, clearError: true, clearResult: true);
+
+  void setExtractedReference(String v) => state = state.copyWith(
+    extractedReference: v,
+    clearError: true,
+    clearResult: true,
+  );
 
   bool get needsSuffix => state.provider == PaymentProvider.cbe;
 
@@ -74,7 +86,17 @@ class ReceiptController extends Notifier<ReceiptState> {
       state.provider == PaymentProvider.cbe ||
       state.provider == PaymentProvider.telebirr;
 
+  void cancel() {
+    _opId++;
+    _cancelToken?.cancel('user_cancelled');
+    _cancelToken = null;
+    if (state.isLoading) {
+      state = state.copyWith(isLoading: false, error: 'Cancelled.');
+    }
+  }
+
   Future<void> setImagePath(String path) async {
+    _opId++;
     state = state.copyWith(
       imagePath: path,
       ocrText: null,
@@ -90,10 +112,14 @@ class ReceiptController extends Notifier<ReceiptState> {
     final path = state.imagePath;
     if (path == null) return;
 
+    final myOp = ++_opId;
+
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final text = await _ocr.recognizeTextFromPath(path);
       final ref = extractReference(text);
+
+      if (myOp != _opId) return;
 
       state = state.copyWith(
         isLoading: false,
@@ -105,6 +131,7 @@ class ReceiptController extends Notifier<ReceiptState> {
         await verifyByExtractedReference();
       }
     } catch (e) {
+      if (myOp != _opId) return;
       state = state.copyWith(isLoading: false, error: errorMessage(e));
     }
   }
@@ -120,13 +147,19 @@ class ReceiptController extends Notifier<ReceiptState> {
       return;
     }
 
+    _cancelToken?.cancel('superseded');
+    _cancelToken = CancelToken();
+    final myOp = ++_opId;
+
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final res = await _api.verifyReference(
         provider: state.provider,
         reference: ref.trim(),
         suffix: needsSuffix ? state.suffix.trim() : null,
+        cancelToken: _cancelToken,
       );
+      if (myOp != _opId) return;
       state = state.copyWith(isLoading: false, result: res);
 
       await _history.add({
@@ -138,14 +171,18 @@ class ReceiptController extends Notifier<ReceiptState> {
         'amount': res.amount,
         'payer': res.payer,
         'date': res.date,
+        'raw': res.raw,
       });
     } catch (e) {
       // OCR path failed: allow upload fallback.
+      if (myOp != _opId) return;
       state = state.copyWith(
         isLoading: false,
         error: errorMessage(e),
         clearResult: true,
       );
+    } finally {
+      _cancelToken = null;
     }
   }
 
@@ -168,13 +205,19 @@ class ReceiptController extends Notifier<ReceiptState> {
       return;
     }
 
+    _cancelToken?.cancel('superseded');
+    _cancelToken = CancelToken();
+    final myOp = ++_opId;
+
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final res = await _api.verifyReceipt(
         provider: state.provider,
         imageFile: File(path),
         suffix: needsSuffix ? state.suffix.trim() : null,
+        cancelToken: _cancelToken,
       );
+      if (myOp != _opId) return;
       state = state.copyWith(isLoading: false, result: res);
 
       await _history.add({
@@ -186,13 +229,17 @@ class ReceiptController extends Notifier<ReceiptState> {
         'amount': res.amount,
         'payer': res.payer,
         'date': res.date,
+        'raw': res.raw,
       });
     } catch (e) {
+      if (myOp != _opId) return;
       state = state.copyWith(
         isLoading: false,
         error: errorMessage(e),
         clearResult: true,
       );
+    } finally {
+      _cancelToken = null;
     }
   }
 }

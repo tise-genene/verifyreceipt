@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/models.dart';
@@ -48,6 +49,8 @@ class ReferenceState {
 }
 
 class ReferenceController extends Notifier<ReferenceState> {
+  CancelToken? _cancelToken;
+
   @override
   ReferenceState build() {
     return const ReferenceState(provider: PaymentProvider.telebirr);
@@ -65,6 +68,14 @@ class ReferenceController extends Notifier<ReferenceState> {
       state.provider == PaymentProvider.cbe ||
       state.provider == PaymentProvider.abyssinia;
   bool get needsPhone => state.provider == PaymentProvider.cbebirr;
+
+  void cancel() {
+    _cancelToken?.cancel('user_cancelled');
+    _cancelToken = null;
+    if (state.isLoading) {
+      state = state.copyWith(isLoading: false, error: 'Cancelled.');
+    }
+  }
 
   Future<void> verify() async {
     final ref = state.reference.trim();
@@ -87,6 +98,9 @@ class ReferenceController extends Notifier<ReferenceState> {
       return;
     }
 
+    _cancelToken?.cancel('superseded');
+    _cancelToken = CancelToken();
+
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final res = await _api.verifyReference(
@@ -94,6 +108,7 @@ class ReferenceController extends Notifier<ReferenceState> {
         reference: ref,
         suffix: state.suffix.trim().isEmpty ? null : state.suffix.trim(),
         phone: state.phone.trim().isEmpty ? null : state.phone.trim(),
+        cancelToken: _cancelToken,
       );
       state = state.copyWith(isLoading: false, result: res);
 
@@ -101,11 +116,12 @@ class ReferenceController extends Notifier<ReferenceState> {
         'ts': DateTime.now().toIso8601String(),
         'type': 'reference',
         'provider': state.provider.value,
-        'reference': ref,
+        'reference': res.reference ?? ref,
         'status': res.status,
         'amount': res.amount,
         'payer': res.payer,
         'date': res.date,
+        'raw': res.raw,
       });
     } catch (e) {
       state = state.copyWith(
@@ -113,6 +129,8 @@ class ReferenceController extends Notifier<ReferenceState> {
         error: errorMessage(e),
         clearResult: true,
       );
+    } finally {
+      _cancelToken = null;
     }
   }
 }
