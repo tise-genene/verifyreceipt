@@ -39,7 +39,7 @@ def _parse_amount(text: str) -> Optional[float]:
             raw = m.group(1).replace(",", "")
             try:
                 return float(raw)
-            except Exception:
+            except ValueError:
                 pass
 
     # Fallback: use the last numeric amount that is immediately followed by ETB.
@@ -49,7 +49,7 @@ def _parse_amount(text: str) -> Optional[float]:
     raw = matches[-1].replace(",", "")
     try:
         return float(raw)
-    except Exception:
+    except ValueError:
         return None
 
 
@@ -121,7 +121,7 @@ async def verify_cbe_receipt_pdf(*, reference: str) -> dict[str, Any]:
     if not re.fullmatch(r"[A-Za-z0-9]+", ref):
         raise ValueError("reference must be alphanumeric")
 
-    base = settings.cbe_receipt_base_url.rstrip("/")
+    base = str(settings.cbe_receipt_base_url).rstrip("/")
     url = f"{base}/?id={ref}"
 
     headers = {
@@ -155,8 +155,8 @@ async def verify_cbe_receipt_pdf(*, reference: str) -> dict[str, Any]:
     except CbeReceiptNotFound:
         _breaker.record_success()
         raise
-    except CircuitOpen:
-        raise RuntimeError("CBE receipt service temporarily unavailable")
+    except CircuitOpen as exc:
+        raise RuntimeError("CBE receipt service temporarily unavailable") from exc
     except Exception:
         _breaker.record_failure()
         raise

@@ -47,7 +47,7 @@ def _parse_amount_birr(text: str, label: str) -> Optional[float]:
     raw = m.group(1).replace(",", "")
     try:
         return float(raw)
-    except Exception:
+    except ValueError:
         return None
 
 
@@ -87,7 +87,7 @@ def _parse_birr_value(value: Any) -> Optional[float]:
         return None
     try:
         return float(m.group(1).replace(",", ""))
-    except Exception:
+    except ValueError:
         return None
 
 
@@ -116,11 +116,11 @@ def _extract_json_payload(text: str) -> Optional[dict[str, Any]]:
                 # Normalize quotes if needed.
                 try:
                     return json.loads(snippet)
-                except Exception:
+                except ValueError:
                     pass
                 try:
                     return json.loads(snippet.replace("'", '"'))
-                except Exception:
+                except ValueError:
                     return None
     return None
 
@@ -130,7 +130,7 @@ async def verify_telebirr_receipt_html(*, reference: str) -> dict[str, Any]:
     if not re.fullmatch(r"[A-Za-z0-9]+", ref):
         raise ValueError("reference must be alphanumeric")
 
-    base = settings.telebirr_receipt_base_url.rstrip("/")
+    base = str(settings.telebirr_receipt_base_url).rstrip("/")
     url = f"{base}/{ref}"
 
     headers = {
@@ -164,8 +164,8 @@ async def verify_telebirr_receipt_html(*, reference: str) -> dict[str, Any]:
     except TelebirrReceiptNotFound:
         _breaker.record_success()
         raise
-    except CircuitOpen:
-        raise RuntimeError("Telebirr receipt service temporarily unavailable")
+    except CircuitOpen as exc:
+        raise RuntimeError("Telebirr receipt service temporarily unavailable") from exc
     except Exception:
         _breaker.record_failure()
         raise

@@ -19,8 +19,8 @@ PROVIDER_TO_ENDPOINT: dict[str, str] = {
 class UpstreamError(RuntimeError):
     def __init__(self, status_code: int, body: Any):
         super().__init__(f"Upstream error: {status_code}")
-        self.status_code = status_code
-        self.body = body
+        self.status_code: int = status_code
+        self.body: Any = body
 
 
 class UpstreamTimeout(RuntimeError):
@@ -58,7 +58,7 @@ async def verify_by_reference(
         payload["phone"] = phone
         payload["phoneNumber"] = phone
 
-    url = settings.verify_api_base_url.rstrip("/") + PROVIDER_TO_ENDPOINT[provider]
+    url = str(settings.verify_api_base_url).rstrip("/") + PROVIDER_TO_ENDPOINT[provider]
 
     try:
         async with httpx.AsyncClient(timeout=_timeout()) as client:
@@ -68,13 +68,13 @@ async def verify_by_reference(
                 headers={"x-api-key": settings.verify_api_key},
             )
     except httpx.TimeoutException as e:
-        raise UpstreamTimeout(str(e))
+        raise UpstreamTimeout(str(e)) from e
     except httpx.RequestError as e:
-        raise UpstreamConnectionError(str(e))
+        raise UpstreamConnectionError(str(e)) from e
 
     try:
         data = resp.json()
-    except Exception:
+    except ValueError:
         data = {"rawText": resp.text}
 
     if resp.status_code >= 400:
@@ -87,7 +87,7 @@ async def verify_by_image(*, image_bytes: bytes, filename: str, suffix: Optional
     if not settings.verify_api_key:
         raise ValueError("VERIFY_API_KEY is not configured")
 
-    url = settings.verify_api_base_url.rstrip("/") + "/verify-image"
+    url = str(settings.verify_api_base_url).rstrip("/") + "/verify-image"
 
     files = {"image": (filename, image_bytes, "image/jpeg")}
     data: dict[str, Any] = {}
@@ -104,13 +104,13 @@ async def verify_by_image(*, image_bytes: bytes, filename: str, suffix: Optional
                 headers={"x-api-key": settings.verify_api_key},
             )
     except httpx.TimeoutException as e:
-        raise UpstreamTimeout(str(e))
+        raise UpstreamTimeout(str(e)) from e
     except httpx.RequestError as e:
-        raise UpstreamConnectionError(str(e))
+        raise UpstreamConnectionError(str(e)) from e
 
     try:
         out = resp.json()
-    except Exception:
+    except ValueError:
         out = {"rawText": resp.text}
 
     if resp.status_code >= 400:

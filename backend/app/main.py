@@ -58,7 +58,7 @@ def _contains_puppeteer_error(value: Any, depth: int = 0) -> bool:
 def _looks_like_automation_error(raw: object) -> bool:
     try:
         text = json.dumps(raw).lower()
-    except Exception:
+    except (TypeError, ValueError):
         text = str(raw).lower()
 
     needles = [
@@ -233,7 +233,7 @@ async def api_verify_reference(req: VerifyReferenceRequest, request: Request) ->
             suffix=req.suffix,
             phone=req.phone,
         )
-    except Exception as e:
+    except (UpstreamTimeout, UpstreamConnectionError, UpstreamError, ValueError) as e:
         upstream_error = e
 
     # Decide whether upstream looks good.
@@ -354,24 +354,24 @@ async def api_verify_receipt(
                 status_code=503,
                 detail="Verification service is temporarily unavailable. Please try again later.",
             )
-    except UpstreamTimeout:
+    except UpstreamTimeout as exc:
         raise HTTPException(
             status_code=504,
             detail="Upstream verification timed out. Please try again.",
-        )
-    except UpstreamConnectionError:
+        ) from exc
+    except UpstreamConnectionError as exc:
         raise HTTPException(
             status_code=502,
             detail="Cannot reach upstream verification service. Please try again.",
-        )
+        ) from exc
     except UpstreamError as e:
         logger.warning("upstream_error provider=%s body=%s", provider, e.body)
         raise HTTPException(
             status_code=502,
             detail="Upstream verification failed. Please try again.",
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        ) from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     if _looks_like_automation_error(raw):
         raise HTTPException(
