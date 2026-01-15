@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any, Optional, Tuple
 
 
@@ -42,14 +43,37 @@ def normalize_status(raw: dict[str, Any]) -> str:
 
 
 def normalize_fields(raw: dict[str, Any]) -> Tuple[Optional[float], Optional[str], Optional[str], Optional[str]]:
-    amount = raw.get("amount") or raw.get("total") or raw.get("totalAmount")
+    src: dict[str, Any] = raw
+    if isinstance(raw.get("data"), dict):
+        src = raw["data"]  # type: ignore[assignment]
+
+    amount = src.get("amount") or src.get("total") or src.get("totalAmount")
     try:
         amount_f = float(amount) if amount is not None else None
     except Exception:
         amount_f = None
+        if isinstance(amount, str):
+            m = re.search(r"([0-9][0-9,]*(?:\.[0-9]{1,2})?)", amount)
+            if m:
+                try:
+                    amount_f = float(m.group(1).replace(",", ""))
+                except Exception:
+                    amount_f = None
 
-    payer = _as_str(raw.get("payer") or raw.get("payerName") or raw.get("from") or raw.get("sender"))
-    date = _as_str(raw.get("date") or raw.get("time") or raw.get("timestamp"))
-    reference = _as_str(raw.get("reference") or raw.get("ref") or raw.get("transactionId") or raw.get("txId"))
+    payer = _as_str(
+        src.get("payer")
+        or src.get("payerName")
+        or src.get("from")
+        or src.get("sender")
+        or src.get("debitedFrom")
+    )
+    date = _as_str(src.get("date") or src.get("time") or src.get("timestamp") or src.get("paymentDate"))
+    reference = _as_str(
+        src.get("reference")
+        or src.get("ref")
+        or src.get("transactionId")
+        or src.get("transactionID")
+        or src.get("txId")
+    )
 
     return amount_f, payer, date, reference

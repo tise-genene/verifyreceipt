@@ -27,6 +27,8 @@ class NormalizedVerification {
     this.amount,
     this.payer,
     this.date,
+    this.source,
+    this.confidence,
     required this.raw,
   });
 
@@ -36,6 +38,8 @@ class NormalizedVerification {
   final double? amount;
   final String? payer;
   final String? date;
+  final String? source; // upstream|local
+  final String? confidence; // high|medium|low
   final Map<String, dynamic> raw;
 
   factory NormalizedVerification.fromJson(Map<String, dynamic> json) {
@@ -51,6 +55,8 @@ class NormalizedVerification {
       amount: amount,
       payer: json['payer'] as String?,
       date: json['date'] as String?,
+      source: json['source'] as String?,
+      confidence: json['confidence'] as String?,
       raw:
           (json['raw'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{},
     );

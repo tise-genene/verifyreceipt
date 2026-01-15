@@ -147,6 +147,50 @@ String errorMessage(Object error) {
       if (detail != null) return prettyJson(detail);
     }
     final status = error.response?.statusCode;
+    if (status == 429) {
+      final headers = error.response?.headers;
+      final resetRaw = headers?.value('x-ratelimit-reset');
+      final requestId = headers?.value('x-request-id');
+
+      DateTime? retryAt;
+      if (resetRaw != null) {
+        final resetEpochSeconds = int.tryParse(resetRaw);
+        if (resetEpochSeconds != null) {
+          retryAt = DateTime.fromMillisecondsSinceEpoch(
+            resetEpochSeconds * 1000,
+            isUtc: true,
+          ).toLocal();
+        }
+      }
+
+      String msg;
+      if (retryAt != null) {
+        final now = DateTime.now();
+        final delta = retryAt.difference(now);
+        final seconds = delta.inSeconds;
+
+        final hh = retryAt.hour.toString().padLeft(2, '0');
+        final mm = retryAt.minute.toString().padLeft(2, '0');
+        final ss = retryAt.second.toString().padLeft(2, '0');
+        final at = '$hh:$mm:$ss';
+
+        if (seconds <= 0) {
+          msg = 'Too many requests. Please try again now.';
+        } else if (seconds < 90) {
+          msg = 'Too many requests. Try again in ${seconds}s (at $at).';
+        } else {
+          final mins = (seconds / 60).ceil();
+          msg = 'Too many requests. Try again in ~${mins}m (at $at).';
+        }
+      } else {
+        msg = 'Too many requests. Please try again shortly.';
+      }
+
+      if (requestId != null && requestId.trim().isNotEmpty) {
+        msg = '$msg\nRequest ID: ${requestId.trim()}';
+      }
+      return msg;
+    }
     if (status == 502 || status == 503 || status == 504) {
       return 'Server is taking too long (upstream timeout). Please try again.';
     }

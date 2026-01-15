@@ -25,6 +25,9 @@ class VerifyReferenceRequest(BaseModel):
 
 NormalizedStatus = Literal["SUCCESS", "FAILED", "PENDING"]
 
+VerificationSource = Literal["upstream", "local"]
+VerificationConfidence = Literal["high", "medium", "low"]
+
 
 class NormalizedVerification(BaseModel):
     status: NormalizedStatus
@@ -33,5 +36,8 @@ class NormalizedVerification(BaseModel):
     amount: Optional[float] = None
     payer: Optional[str] = None
     date: Optional[str] = None
+
+    source: Optional[VerificationSource] = None
+    confidence: Optional[VerificationConfidence] = None
 
     raw: dict[str, Any] = Field(default_factory=dict)

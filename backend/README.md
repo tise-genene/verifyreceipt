@@ -39,8 +39,45 @@ Notes:
 ```powershell
 cd backend
 copy .env.example .env
-# edit .env and set VERIFY_API_KEY
+# edit .env and set VERIFY_API_KEY (unless running local-only mode)
 ..\scripts\bootstrap_backend.ps1
+```
+
+## Local "better-verifier" mode (CBE PDF receipts)
+
+The backend can verify some providers without calling the upstream verifier.
+
+When enabled, local verifiers act as a **fallback**: the backend will try the upstream verifier first and, if it fails or returns a non-success result, it will try the local verifier.
+
+Currently implemented:
+
+- **CBE**: fetches the public PDF at `https://apps.cbe.com.et:100/?id=<reference>` and extracts fields.
+- **Telebirr**: fetches the public receipt page at `https://transactioninfo.ethiotelecom.et/receipt/<invoiceNo>` and extracts fields.
+
+Enable it with:
+
+- `LOCAL_CBE_RECEIPT_ENABLED=true`
+- Optional: `CBE_RECEIPT_BASE_URL=https://apps.cbe.com.et:100/`
+
+Or for Telebirr:
+
+- `LOCAL_TELEBIRR_RECEIPT_ENABLED=true`
+- Optional: `TELEBIRR_RECEIPT_BASE_URL=https://transactioninfo.ethiotelecom.et/receipt/`
+
+When this local mode is enabled, **`VERIFY_API_KEY` is not required for CBE reference verification**.
+
+Quick test:
+
+```powershell
+$env:LOCAL_CBE_RECEIPT_ENABLED='true'
+python -m uvicorn app.main:app --app-dir "$PWD" --host 127.0.0.1 --port 8080
+```
+
+Then:
+
+```powershell
+$body = @{ provider = 'cbe'; reference = 'FT...' } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8080/api/verify/reference' -ContentType 'application/json' -Body $body
 ```
 
 ## Deploy on Render

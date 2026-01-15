@@ -46,6 +46,9 @@ async def verify_by_reference(
     if provider not in PROVIDER_TO_ENDPOINT:
         raise ValueError("Unsupported provider")
 
+    if not settings.verify_api_key:
+        raise ValueError("VERIFY_API_KEY is not configured")
+
     payload: dict[str, Any] = {"reference": reference}
 
     if suffix:
@@ -81,6 +84,9 @@ async def verify_by_reference(
 
 
 async def verify_by_image(*, image_bytes: bytes, filename: str, suffix: Optional[str]) -> dict[str, Any]:
+    if not settings.verify_api_key:
+        raise ValueError("VERIFY_API_KEY is not configured")
+
     url = settings.verify_api_base_url.rstrip("/") + "/verify-image"
 
     files = {"image": (filename, image_bytes, "image/jpeg")}

@@ -33,7 +33,9 @@ class VerificationResultView extends StatelessWidget {
 
     final failureMessage = result.status == 'SUCCESS'
         ? null
-        : _friendlyFailureMessage(payload);
+        : (result.status == 'PENDING'
+              ? 'Verification is pending. Try again in a moment.'
+              : _friendlyFailureMessage(payload));
 
     final (badgeColor, badgeBg) = _statusColors(context, result.status);
 
@@ -73,6 +75,25 @@ class VerificationResultView extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
+                      if ((result.source ?? '').isNotEmpty ||
+                          (result.confidence ?? '').isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            _metaLine(
+                              source: result.source,
+                              confidence: result.confidence,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -146,7 +167,9 @@ class VerificationResultView extends StatelessWidget {
                   OutlinedButton.icon(
                     onPressed: onRetry,
                     icon: const Icon(Icons.refresh),
-                    label: const Text('Retry'),
+                    label: Text(
+                      result.status == 'PENDING' ? 'Try again' : 'Retry',
+                    ),
                   ),
               ],
             ),
@@ -178,6 +201,27 @@ class VerificationResultView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  static String _metaLine({
+    required String? source,
+    required String? confidence,
+  }) {
+    final parts = <String>[];
+    final s = (source ?? '').trim();
+    final c = (confidence ?? '').trim();
+    if (s.isNotEmpty) {
+      parts.add('Source: ${_titleCase(s)}');
+    }
+    if (c.isNotEmpty) {
+      parts.add('Confidence: ${_titleCase(c)}');
+    }
+    return parts.join(' • ');
+  }
+
+  static String _titleCase(String value) {
+    if (value.isEmpty) return value;
+    return value[0].toUpperCase() + value.substring(1).toLowerCase();
   }
 
   static Widget _kv(String k, String v) {

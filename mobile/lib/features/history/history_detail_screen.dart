@@ -21,6 +21,8 @@ class HistoryDetailScreen extends StatelessWidget {
       amount: (record['amount'] as num?)?.toDouble(),
       payer: record['payer'] as String?,
       date: record['date'] as String?,
+      source: record['source'] as String?,
+      confidence: record['confidence'] as String?,
       raw:
           (record['raw'] as Map?)?.cast<String, dynamic>() ??
           <String, dynamic>{},
