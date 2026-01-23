@@ -7,6 +7,14 @@ import 'package:flutter/foundation.dart';
 import '../storage/settings_store.dart';
 import 'models.dart';
 
+class ApiConfigError implements Exception {
+  ApiConfigError(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class ApiClient {
   ApiClient(this._dio, this._settings);
 
@@ -30,6 +38,7 @@ class ApiClient {
     } on DioException catch (e) {
       final shouldRetry =
           e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.connectionError ||
           e.type == DioExceptionType.sendTimeout ||
           e.type == DioExceptionType.receiveTimeout ||
           (e.type == DioExceptionType.unknown &&
@@ -56,7 +65,10 @@ class ApiClient {
     String? phone,
     CancelToken? cancelToken,
   }) async {
-    final baseUrl = await _settings.getApiBaseUrl();
+    final baseUrl = _normalizeBaseUrl(await _settings.getApiBaseUrl());
+    if (baseUrl.isEmpty) {
+      throw ApiConfigError('Server URL is not set. Open Settings and set it.');
+    }
 
     final resp = await _postWithRetry<Map<String, dynamic>>(
       '$baseUrl/api/verify/reference',
@@ -79,7 +91,10 @@ class ApiClient {
     String? suffix,
     CancelToken? cancelToken,
   }) async {
-    final baseUrl = await _settings.getApiBaseUrl();
+    final baseUrl = _normalizeBaseUrl(await _settings.getApiBaseUrl());
+    if (baseUrl.isEmpty) {
+      throw ApiConfigError('Server URL is not set. Open Settings and set it.');
+    }
 
     final form = FormData.fromMap({
       'provider': provider.value,
@@ -104,6 +119,14 @@ class ApiClient {
   }
 }
 
+String _normalizeBaseUrl(String value) {
+  var s = value.trim();
+  while (s.endsWith('/')) {
+    s = s.substring(0, s.length - 1);
+  }
+  return s;
+}
+
 String prettyJson(Object? value) {
   try {
     const encoder = JsonEncoder.withIndent('  ');
@@ -114,16 +137,32 @@ String prettyJson(Object? value) {
 }
 
 String errorMessage(Object error) {
+  if (error is ApiConfigError) return error.message;
   if (error is DioException) {
     switch (error.type) {
       case DioExceptionType.cancel:
         return 'Cancelled.';
+      case DioExceptionType.connectionError:
+        if (error.error is SocketException) {
+          final se = error.error as SocketException;
+          final msg = (se.osError?.message ?? se.message).toLowerCase();
+          if (msg.contains('refused')) {
+            return 'Can’t connect to the server (connection refused).\nCheck the server address in Settings.';
+          }
+          return 'Can’t reach the server.\nCheck your connection and the server address in Settings.';
+        }
+        return 'Can’t connect to the server.\nCheck the server address in Settings.';
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return 'Request timed out. The server may be busy — please try again.';
+        return 'Request timed out.\nCheck the server address in Settings and try again.';
       case DioExceptionType.unknown:
         if (error.error is SocketException) {
+          final se = error.error as SocketException;
+          final msg = (se.osError?.message ?? se.message).toLowerCase();
+          if (msg.contains('refused')) {
+            return 'Can’t connect to the server (connection refused).\nCheck the server address in Settings.';
+          }
           return 'Network error. Check your internet connection and try again.';
         }
         break;

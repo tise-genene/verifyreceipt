@@ -27,7 +27,9 @@ flutter run
 
 #### Backend base URL
 
-By default, the app uses `http://10.0.2.2:8080` (Android emulator talking to your local machine).
+By default, the app uses the deployed backend `https://verifyreceipt-backend.onrender.com`.
+
+For local emulator testing, override via dart-define or the in-app **Server settings** (gear icon) to `http://10.0.2.2:8080`.
 
 To point to your Render backend, run:
 

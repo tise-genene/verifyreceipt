@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../reference/reference_controller.dart';
+import '../settings/server_settings_screen.dart';
 
 class ScanQrScreen extends ConsumerStatefulWidget {
   const ScanQrScreen({super.key});
@@ -17,7 +18,20 @@ class _ScanQrScreenState extends ConsumerState<ScanQrScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Scan QR')),
+      appBar: AppBar(
+        title: const Text('Scan QR'),
+        actions: [
+          IconButton(
+            tooltip: 'Server settings',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ServerSettingsScreen()),
+              );
+            },
+          ),
+        ],
+      ),
       body: MobileScanner(
         onDetect: (capture) {
           if (_handled) return;

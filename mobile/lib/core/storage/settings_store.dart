@@ -9,10 +9,10 @@ class SettingsStore {
   Future<String> getApiBaseUrl() async {
     final box = await _box();
 
-    // For Android emulator, localhost should be 10.0.2.2
+    // Default to the deployed backend; override via dart-define for local dev.
     final defaultUrl = const String.fromEnvironment(
       'API_BASE_URL',
-      defaultValue: 'http://10.0.2.2:8080',
+      defaultValue: 'https://verifyreceipt-backend.onrender.com',
     );
     return (box.get(_keyApiBaseUrl) as String?) ?? defaultUrl;
   }

@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/api/models.dart';
 import '../common/verification_result_view.dart';
+import '../settings/server_settings_screen.dart';
 import 'receipt_controller.dart';
 
 class ReceiptScreen extends ConsumerStatefulWidget {
@@ -46,7 +47,20 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
     final suggestedProvider = _suggestProvider(extracted);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Verify by receipt')),
+      appBar: AppBar(
+        title: const Text('Verify by receipt'),
+        actions: [
+          IconButton(
+            tooltip: 'Server settings',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ServerSettingsScreen()),
+              );
+            },
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

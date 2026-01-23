@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/models.dart';
 import '../common/verification_result_view.dart';
+import '../settings/server_settings_screen.dart';
 import 'reference_controller.dart';
 
 class ReferenceScreen extends ConsumerWidget {
@@ -14,7 +15,20 @@ class ReferenceScreen extends ConsumerWidget {
     final ctrl = ref.read(referenceControllerProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Verify by reference')),
+      appBar: AppBar(
+        title: const Text('Verify by reference'),
+        actions: [
+          IconButton(
+            tooltip: 'Server settings',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ServerSettingsScreen()),
+              );
+            },
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

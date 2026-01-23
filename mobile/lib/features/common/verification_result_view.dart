@@ -158,7 +158,12 @@ class VerificationResultView extends StatelessWidget {
                       result: result,
                       details: details,
                     );
-                    Share.share(summary);
+                    SharePlus.instance.share(
+                      ShareParams(
+                        text: summary,
+                        subject: 'VerifyReceipt result',
+                      ),
+                    );
                   },
                   icon: const Icon(Icons.share),
                   label: const Text('Share'),
@@ -411,12 +416,6 @@ class VerificationResultView extends StatelessWidget {
       }
     }
     return b.toString();
-  }
-
-  static bool _isMeaningful(String? v) {
-    if (v == null) return false;
-    final t = v.trim();
-    return t.isNotEmpty && t != '-';
   }
 
   static bool _shouldHideDetailEntry(String key, String value) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/di/providers.dart';
+import '../settings/server_settings_screen.dart';
 import 'history_detail_screen.dart';
 
 final historyListProvider = FutureProvider<List<Map<String, dynamic>>>((
@@ -48,6 +49,15 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       appBar: AppBar(
         title: const Text('History'),
         actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ServerSettingsScreen()),
+              );
+            },
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Server settings',
+          ),
           IconButton(
             onPressed: () async {
               await store.clear();
@@ -106,7 +116,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     ? const Center(child: Text('No matching history'))
                     : ListView.separated(
                         itemCount: filtered.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
+                    separatorBuilder: (context, index) =>
+                      const Divider(height: 1),
                         itemBuilder: (context, index) {
                           final it = filtered[index];
                           final status = (it['status'] ?? 'PENDING').toString();
